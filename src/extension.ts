@@ -3,7 +3,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export function activate(context: vscode.ExtensionContext) {
-	context.subscriptions.push(vscode.commands.registerCommand('vsogh.openFile', openFile));
+	context.subscriptions.push(vscode.commands.registerCommand('vsogh.file', createCommand(createFileUrl)));
+	context.subscriptions.push(vscode.commands.registerCommand('vsogh.blame', createCommand(createBlameUrl)));
+	context.subscriptions.push(vscode.commands.registerCommand('vsogh.history', createCommand(createHistoryUrl)));
 }
 
 export function deactivate() {
@@ -17,17 +19,34 @@ class Err {
 	) { }
 }
 
-async function openFile() {
-	const state = await getCurrentState();
-	if (state instanceof Err) {
-		vscode.window.showInformationMessage(state.msg);
-		if (state.detail) {
-			console.log(state.detail);
-		}
-		return;
-	}
+function createFileUrl(state: IState): string {
+	// https://github.com/microsoft/vscode/blob/master/extensions/typescript-basics/package.json#L85
+	return `${state.upstream}/blob/${state.upstreamBranch}/${state.filePath}#L${state.lineNumber}`;
+}
 
-	vscode.env.openExternal(`${state.upstream}/blob/${state.upstreamBranch}/${state.filePath}#L${state.lineNumber}`);
+function createBlameUrl(state: IState): string {
+	// https://github.com/microsoft/vscode/blame/master/extensions/typescript-basics/package.json#L85
+	return `${state.upstream}/blame/${state.upstreamBranch}/${state.filePath}#L${state.lineNumber}`;
+}
+
+function createHistoryUrl(state: IState): string {
+	https://github.com/microsoft/vscode/commits/master/extensions/typescript-basics/package.json
+	return `${state.upstream}/commits/${state.upstreamBranch}/${state.filePath}`;
+}
+
+function createCommand(urlBuilder: (state: IState) => string) {
+	return async function openFile() {
+		const state = await getCurrentState();
+		if (state instanceof Err) {
+			vscode.window.showInformationMessage(state.msg);
+			if (state.detail) {
+				console.log(state.detail);
+			}
+			return;
+		}
+
+		vscode.env.openExternal(vscode.Uri.parse(urlBuilder(state)));
+	};
 }
 
 interface IState {

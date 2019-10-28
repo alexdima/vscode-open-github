@@ -10,14 +10,24 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:vsogh.openFile"
+		"onCommand:vsogh.file",
+		"onCommand:vsogh.blame",
+		"onCommand:vsogh.history"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "vsogh.openFile",
-				"title": "Open in GitHub: Open File"
+				"command": "vsogh.file",
+				"title": "Open in GitHub: File"
+			},
+			{
+				"command": "vsogh.blame",
+				"title": "Open in GitHub: Blame"
+			},
+			{
+				"command": "vsogh.history",
+				"title": "Open in GitHub: History"
 			}
 		]
 	},
