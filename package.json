@@ -2,6 +2,7 @@
 	"name": "open-in-github",
 	"displayName": "open-in-github",
 	"description": "",
+	"publisher": "alexdima",
 	"version": "0.0.1",
 	"engines": {
 		"vscode": "^1.39.0"
