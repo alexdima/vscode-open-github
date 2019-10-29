@@ -97,12 +97,27 @@ async function getRepoState(filePath: string): Promise<IRepoState | Err> {
 		return gitDataPath;
 	}
 
-	const currentBranch = await getCurrentBranch(gitDataPath);
+	const currentBranch = await getCurrentHEAD(gitDataPath);
 	if (currentBranch instanceof Err) {
 		return currentBranch;
 	}
 
-	return await getBranchUpstream(gitDataPath, currentBranch);
+	if (currentBranch.type === 'sha1') {
+		// we are in a detached HEAD, just try origin
+		const upstream = await getRemoteUrl(gitDataPath, 'origin');
+		if (upstream instanceof Err) {
+			return upstream;
+		}
+
+		return {
+			gitDataPath: gitDataPath,
+			branch: currentBranch.sha1,
+			upstream: upstream,
+			upstreamBranch: currentBranch.sha1
+		};
+	}
+
+	return await getBranchUpstream(gitDataPath, currentBranch.branch);
 }
 
 interface IRepoState {
@@ -134,17 +149,10 @@ async function getBranchUpstream(gitDataPath: string, branch: string): Promise<I
 
 		const remoteBranchName = remoteFullBranchName.replace(/^refs\/heads\//, '');
 
-		const remoteSection = extractSection(strConfig, `remote "${remoteName}"`);
-		if (remoteSection instanceof Err) {
-			return remoteSection;
+		const remoteUrl = await getRemoteUrl(gitDataPath, remoteName);
+		if (remoteUrl instanceof Err) {
+			return remoteUrl;
 		}
-
-		const remoteInfo = decodeKeyValuePairs(remoteSection);
-		if (!remoteInfo['url']) {
-			return new Err(`Could not determine upstream url from remote info ${JSON.stringify(remoteInfo)}`);
-		}
-
-		const remoteUrl = remoteInfo['url'];
 
 		return {
 			gitDataPath: gitDataPath,
@@ -155,6 +163,27 @@ async function getBranchUpstream(gitDataPath: string, branch: string): Promise<I
 
 	} catch (err) {
 		return new Err(`An error occurend when getting branch info`, err);
+	}
+}
+
+async function getRemoteUrl(gitDataPath: string, remoteName: string): Promise<string | Err> {
+	try {
+		const byteConfig = await readFile(path.join(gitDataPath, 'config'));
+		const strConfig = byteConfig.toString();
+
+		const remoteSection = extractSection(strConfig, `remote "${remoteName}"`);
+		if (remoteSection instanceof Err) {
+			return remoteSection;
+		}
+
+		const remoteInfo = decodeKeyValuePairs(remoteSection);
+		if (!remoteInfo['url']) {
+			return new Err(`Could not determine upstream url from remote info ${JSON.stringify(remoteInfo)}`);
+		}
+
+		return remoteInfo['url'];
+	} catch (err) {
+		return new Err(`An error occurend when getting remote info`, err);
 	}
 }
 
@@ -189,18 +218,26 @@ function extractSection(config: string, sectionName: string): string | Err {
 	return new Err(`Could not find section for [${sectionName}]`);
 }
 
-async function getCurrentBranch(gitDataPath: string): Promise<string | Err> {
+interface CurrentBranchHEAD { type: 'branch'; branch: string; }
+interface CurrentSHA1HEAD { type: 'sha1'; sha1: string; }
+type CurrentHEAD = CurrentBranchHEAD | CurrentSHA1HEAD;
+
+async function getCurrentHEAD(gitDataPath: string): Promise<CurrentHEAD | Err> {
 	try {
 		const byteHead = await readFile(path.join(gitDataPath, 'HEAD'));
 		const strHead = byteHead.toString();
-		const m = strHead.match(/ref: refs\/heads\/(.*)/);
-		if (m) {
-			return m[1];
+		const m1 = strHead.match(/ref: refs\/heads\/(.*)/);
+		if (m1) {
+			return { type: 'branch', branch: m1[1] };
+		}
+		const m2 = strHead.match(/([0-9a-f]{40})/);
+		if (m2) {
+			return { type: 'sha1', sha1: m2[1] };
 		}
 	} catch (err) {
 		return new Err(`Cannot read HEAD file in repository at ${gitDataPath}`, err);
 	}
-	return new Err(`HEAD file does not match ref: pattern`);
+	return new Err(`HEAD file does not match ref pattern or sha1 pattern`);
 }
 
 async function findGitDataPath(filePath: string): Promise<string | Err> {
