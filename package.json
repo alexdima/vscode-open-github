@@ -10,6 +10,10 @@
 	"categories": [
 		"Other"
 	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/alexdima/vscode-open-github"
+	},
 	"activationEvents": [
 		"onCommand:vsogh.file",
 		"onCommand:vsogh.blame",
