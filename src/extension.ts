@@ -19,14 +19,21 @@ class Err {
 	) { }
 }
 
+function createLineHash(state: IState): string {
+	if (state.startLineNumber === state.endLineNumber) {
+		return `L${state.startLineNumber}`;
+	}
+	return `L${state.startLineNumber}-L${state.endLineNumber}`;
+}
+
 function createFileUrl(state: IState): string {
 	// https://github.com/microsoft/vscode/blob/master/extensions/typescript-basics/package.json#L85
-	return `${state.upstream}/blob/${state.upstreamBranch}/${state.filePath}#L${state.lineNumber}`;
+	return `${state.upstream}/blob/${state.upstreamBranch}/${state.filePath}#${createLineHash(state)}`;
 }
 
 function createBlameUrl(state: IState): string {
 	// https://github.com/microsoft/vscode/blame/master/extensions/typescript-basics/package.json#L85
-	return `${state.upstream}/blame/${state.upstreamBranch}/${state.filePath}#L${state.lineNumber}`;
+	return `${state.upstream}/blame/${state.upstreamBranch}/${state.filePath}#${createLineHash(state)}`;
 }
 
 function createHistoryUrl(state: IState): string {
@@ -51,7 +58,8 @@ function createCommand(urlBuilder: (state: IState) => string) {
 
 interface IState {
 	filePath: string;
-	lineNumber: number;
+	startLineNumber: number;
+	endLineNumber: number;
 	branch: string;
 	upstream: string;
 	upstreamBranch: string;
@@ -69,7 +77,11 @@ async function getCurrentState(): Promise<IState | Err> {
 	}
 
 	const fsPath = uri.fsPath;
-	const lineNumber = activeTextEditor.selection.active.line + 1;
+	let startLineNumber = Math.min(activeTextEditor.selection.anchor.line, activeTextEditor.selection.active.line);
+	let endLineNumber = Math.max(activeTextEditor.selection.anchor.line, activeTextEditor.selection.active.line);
+	if (startLineNumber !== endLineNumber && activeTextEditor.selection.active.line > activeTextEditor.selection.anchor.line && activeTextEditor.selection.active.character === 0) {
+		endLineNumber--;
+	}
 	const repoState = await getRepoState(fsPath);
 	if (repoState instanceof Err) {
 		return repoState;
@@ -85,7 +97,8 @@ async function getCurrentState(): Promise<IState | Err> {
 		branch: repoState.branch,
 		upstream: upstream,
 		upstreamBranch: repoState.upstreamBranch,
-		lineNumber: lineNumber,
+		startLineNumber: startLineNumber,
+		endLineNumber: endLineNumber,
 		filePath: path.relative(path.dirname(repoState.gitDataPath), fsPath).replace(/\\/g, '/')
 	};
 }
