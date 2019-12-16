@@ -87,7 +87,7 @@ async function getCurrentState(): Promise<IState | Err> {
 		return repoState;
 	}
 
-	const m = repoState.upstream.match(/^https:\/\/(.*)\.git$/);
+	const m = repoState.upstream.match(/^https:\/\/(.*)(\.git)?$/);
 	if (!m) {
 		return new Err(`Could not identify GH url ${repoState.upstream}`);
 	}
