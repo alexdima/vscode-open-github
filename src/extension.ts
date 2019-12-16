@@ -21,9 +21,9 @@ class Err {
 
 function createLineHash(state: IState): string {
 	if (state.startLineNumber === state.endLineNumber) {
-		return `L${state.startLineNumber}`;
+		return `L${state.startLineNumber + 1}`;
 	}
-	return `L${state.startLineNumber}-L${state.endLineNumber}`;
+	return `L${state.startLineNumber + 1}-L${state.endLineNumber + 1}`;
 }
 
 function createFileUrl(state: IState): string {
